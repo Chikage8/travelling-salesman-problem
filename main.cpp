@@ -4,6 +4,9 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <random>
+#include "main.h"
+#include <set>
 
 // defining a struct for storing coordinates
 struct Coordinate {
@@ -20,8 +23,8 @@ struct Edge {
 };
 
 struct Tour {    
-    int currentLocation = -5;
-    std::vector<int> locationVisitOrder;
+    int currentCity = -5;
+    std::vector<int> cityVisitOrder;
 };
 
 struct NeighborProbability {
@@ -54,6 +57,7 @@ std::vector<Coordinate> readCoordinatesFromFile(const std::string& filename) {
                 std::istringstream iss(line);
                 Coordinate coord;
                 if (iss >> coord.id >> coord.x >> coord.y) {
+                    coord.id -= 1;
                     coordinates.push_back(coord);
                 }
             }
@@ -76,25 +80,51 @@ double calculateDistance(const Coordinate& coord1, const Coordinate& coord2) {
     return distance;
 }
 
-//std::vector<Edge> calculateDistances(std::vector<Coordinate>& coordinates) {
-//    int numCoordinates = coordinates.size();
-//    // create the vector of edges struct
-//    std::vector<Edge> edges;
-//    // loop over the coordinates to calculate distance and store it in the vector of edges
-//    for (int i = 0; i < numCoordinates; ++i) {
-//        for (int j = 0; j < numCoordinates; ++j) {
-//            if (i != j) {
-//                double distance = calculateDistance(coordinates[i], coordinates[j]);                
-//                Edge edge;
-//                edge.coord1 = coordinates[i];
-//                edge.coord2 = coordinates[j];
-//                edge.distance = distance;
-//                edges.push_back(edge);
-//
-//            }
-//        }
-//    }
-//}
+std::vector<Edge> calculateDistances(std::vector<Coordinate>& coordinates) {
+    int numCoordinates = coordinates.size();
+    // create the vector of edges struct
+    std::vector<Edge> edges;
+    // loop over the coordinates to calculate distance and store it in the vector of edges
+    for (int i = 0; i < numCoordinates; ++i) {
+        for (int j = 0; j < numCoordinates; ++j) {
+            if (i != j) {
+                double distance = calculateDistance(coordinates[i], coordinates[j]);                
+                Edge edge;
+                edge.coord1 = coordinates[i];
+                edge.coord2 = coordinates[j];
+                edge.distance = distance;
+                edges.push_back(edge);
+
+            }
+        }
+    }
+    return edges;
+}
+
+double generateRandomProb()
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<double> dis(0.0, 1.0);
+
+    // Generate a random number between 0 and 1
+    double randomNumber = dis(gen);
+
+    return randomNumber;
+}
+
+bool foundIn(Tour& currentTour, const int& i)
+{
+    return std::find(currentTour.cityVisitOrder.begin(), currentTour.cityVisitOrder.end(), i) != currentTour.cityVisitOrder.end();
+}
+
+void VisitCity(Tour& currentTour, std::set<int>& visitableCities, int i)
+{
+    currentTour.currentCity = i;
+    currentTour.cityVisitOrder.push_back(i);
+
+    visitableCities.erase(i);
+}
 
 
 int main() {
@@ -102,10 +132,7 @@ int main() {
     std::string filename = "fi10639.tsp";
 
     // create a vector of Coordinate structs using the readCoordinatesFromFile function which returns vector of Coordinate structs
-    std::vector<Coordinate> coordinates = readCoordinatesFromFile(filename);
-
-    // create a vector of Edge structs using the calculateDistances function with the above instance of vector of Coordinate structs as parameter
-    //std::vector<Edge> edges = calculateDistances(coordinates);
+    std::vector<Coordinate> coordinates = readCoordinatesFromFile(filename); 
 
     int numCoordinates = coordinates.size();
 
@@ -134,89 +161,75 @@ int main() {
                 edgeRatingMatrix[i][j] = 1;
             }
         }
-    }
+    }    
 
-    std::cout << "on first location" << std::endl;
-    Tour myFirstTour;
-    Tour visitableLocations;
-    myFirstTour.currentLocation = 0;
-    myFirstTour.locationVisitOrder.push_back(0);
-    
-    // visitableLocations filled with the ids of coordinates
+    // my first tour to get the algorithm going 
+    // Tour is a struct that contains int(currnetCity) and vector of ints(list of visited city ids in order in this case)
+    Tour currentTour;
+
+    // creating set for unvisited cities so that we can remove by value
+    std::set<int> visitableCities;
+
     for (int i = 0; i < coordinates.size(); i++)
     {
-        if (std::find(myFirstTour.locationVisitOrder.begin(), myFirstTour.locationVisitOrder.end(), i) != myFirstTour.locationVisitOrder.end())
-        {
-            visitableLocations.locationVisitOrder.push_back(i);
-        }
-
-
-        
-        /*bool newLocation = true;
-        for (int v = 0; v < myFirstTour.locationVisitOrder.size(); v++)
-        {
-            if (i == v)
-            {
-                newLocation = false;
-                break;
-            }
-        }
-        if (newLocation)
-        {
-
-        }*/
+        visitableCities.insert(i);        
     }
-    double totalInverseDistanceCurrentEdges = 0;
 
-    for (int i = 0; i < edgeInverseDistanceMatrix[myFirstTour.currentLocation].size(); i++)
-    {
-        if (i != myFirstTour.currentLocation)
-        {
-            totalInverseDistanceCurrentEdges += edgeInverseDistanceMatrix[myFirstTour.currentLocation][i];
-        }
-    }
+    VisitCity(currentTour, visitableCities, 0);
     
-    std::vector<NeighborProbability> probabiltiesOfCurrentEdges;
-
-    for (int i = 0; i < edgeInverseDistanceMatrix[myFirstTour.currentLocation].size(); i++)
+    while (visitableCities.size() > 0)
     {
-        if (i != myFirstTour.currentLocation)
+        // variable to add all the inverse distances of visitableCities for probability calculation
+        double totalInverseDistanceVisitableCities = 0;
+
+        // adding up all the inverse distance for the visitableCities
+        for (int city : visitableCities)
+        {
+            totalInverseDistanceVisitableCities += edgeInverseDistanceMatrix[currentTour.currentCity][city];
+        }     
+    
+        // vector of NeighborProbability construct to store the id and the probability of cities 
+        std::vector<NeighborProbability> probabilityVisitableCities;
+
+        // storing the id and probabilty for each of the visitable cities
+        for (int city : visitableCities)
         {
             NeighborProbability neighborProb;
-            neighborProb.id = i;
-            neighborProb.probability = edgeInverseDistanceMatrix[myFirstTour.currentLocation][i] / totalInverseDistanceCurrentEdges;
-            probabiltiesOfCurrentEdges.push_back(neighborProb);
-        }
-    }
+            neighborProb.id = city;
+            neighborProb.probability = edgeInverseDistanceMatrix[currentTour.currentCity][city] / totalInverseDistanceVisitableCities;
 
-    for (const auto& neighbor : probabiltiesOfCurrentEdges)
+            probabilityVisitableCities.push_back(neighborProb);
+        }       
+
+        // Generating a random number between 0 and 1
+        double roll = generateRandomProb();
+
+        // declaring a variable to hold the sum of probabilities
+        double cumulativeProbability = 0;
+
+        // Choose City based on the probabilty of each neighbor
+        // Adding up the probabilty of each visitable city until we exceed the roll
+        // When we have exceeded the roll the city that caused cumulativeProbability to exceed the roll is choosed as the next city to visit
+        for (const NeighborProbability& neighbor : probabilityVisitableCities)
+        {
+            cumulativeProbability += neighbor.probability;
+            if (cumulativeProbability > roll)
+            {
+                VisitCity(currentTour, visitableCities, neighbor.id);
+                break;
+            }            
+        }    
+        
+    }
+    for (int i : currentTour.cityVisitOrder)
     {
-        std::cout << neighbor.id << " " << neighbor.probability << std::endl;
+        std::cout << i << std::endl;
     }
-
-    // Print the values of the vector
-   /* for (const auto& probability : probabiltiesOfCurrentEdges) {
-        std::cout << probability << std::endl;
-    }*/
-
-
-   
-    
-
-
-    // Display the matrix
-    /*for (int i = 0; i < numCoordinates; i++) {
-        for (int j = 0; j < numCoordinates; j++) {
-            std::cout << edgeMatrix[i][0] << " ";
-        }
-        std::cout << std::endl;
-    }*/
-
-    // prints out the vector of Coordinate structs instance "coordinates"
-    /*for (const auto& coord : coordinates) {
-        std::cout << "ID: " << coord.id << ", X: " << coord.x << ", Y: " << coord.y << std::endl;
-    }*/
-    
 
     return 0;
 }
+
+
+
+
+
