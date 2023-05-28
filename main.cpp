@@ -33,6 +33,8 @@ struct NeighborProbability {
     double probability;
 };
 
+Tour bestTour;
+
 std::vector<Coordinate> readCoordinatesFromFile(const std::string& filename) {
 
     // read file
@@ -174,7 +176,7 @@ int main() {
         }
     }    
 
-    double shortestDistance = 2 * std::pow(10, 7);
+    double shortestDistance = 2 * std::pow(10, 8);
 
     for (int run = 0; run < 100; run++)
     {
@@ -258,12 +260,7 @@ int main() {
         // Visit back the starting city
         currentTour.distanceTraveled += 1 / edgeInverseDistanceMatrix[startCityIndex][currentTour.currentCity];
         currentTour.currentCity = startCityIndex;
-        currentTour.cityVisitOrder.push_back(startCityIndex);
-
-        std::cout << "cityVisitOrder.size() = " << currentTour.cityVisitOrder.size() << std::endl;
-
-        // print current tour distance traveled
-        std::cout << "currentTour.distanceTraveled = " << currentTour.distanceTraveled << std::endl;
+        currentTour.cityVisitOrder.push_back(startCityIndex);        
 
         // adjusting the edge rating matrix
         for (int i = 0; i < currentTour.cityVisitOrder.size() - 1; i++)
@@ -275,8 +272,18 @@ int main() {
         if (currentTour.distanceTraveled < shortestDistance)
         {
             shortestDistance = currentTour.distanceTraveled;
+            bestTour = currentTour;
         }
+        std::cout << "On Run: " << run << "\t";
+        std::cout << "The distance was: " << currentTour.distanceTraveled << std::endl;
     }
+    std::cout << "Shortest distance was: " << shortestDistance << std::endl;
+    std::cout << "and the route was: " << std::endl;
+    for (auto& cityId : bestTour.cityVisitOrder)
+    {
+        std::cout << cityId << "->";
+    }
+    
 
     return 0;
 }
