@@ -24,6 +24,7 @@ struct Edge {
 
 struct Tour {    
     int currentCity = -5;
+    double distanceTraveled = 0;
     std::vector<int> cityVisitOrder;
 };
 
@@ -126,6 +127,15 @@ void VisitCity(Tour& currentTour, std::set<int>& visitableCities, int i)
     visitableCities.erase(i);
 }
 
+int ChooseStartingCity()
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(0, 10638);
+
+    int randomNum = dist(gen);
+    return randomNum;
+}
 
 int main() {
     // set the filename
@@ -136,11 +146,11 @@ int main() {
 
     int numCoordinates = coordinates.size();
 
-    // Create a 2D vector to represent the matrix
+    // Create a 2D vector to represent the matrices of inversedistance and edge rating which will be used for choosing neighbors
     std::vector<std::vector<double>> edgeInverseDistanceMatrix(numCoordinates, std::vector<double>(numCoordinates));
     std::vector<std::vector<double>> edgeRatingMatrix(numCoordinates, std::vector<double>(numCoordinates));
 
-    // Populate the matrix with distances
+    // Fill the inverse distance matrix with distances
     for (int i = 0; i < numCoordinates; i++) {
         for (int j = 0; j < numCoordinates; j++) {
             if (i == j) {
@@ -152,6 +162,7 @@ int main() {
         }
     }
     
+    // Initialize the rating matrix with 1's
     for (int i = 0; i < numCoordinates; i++) {
         for (int j = 0; j < numCoordinates; j++) {
             if (i == j) {
@@ -163,71 +174,114 @@ int main() {
         }
     }    
 
-    // my first tour to get the algorithm going 
-    // Tour is a struct that contains int(currnetCity) and vector of ints(list of visited city ids in order in this case)
-    Tour currentTour;
+    double shortestDistance = 2 * std::pow(10, 7);
 
-    // creating set for unvisited cities so that we can remove by value
-    std::set<int> visitableCities;
-
-    for (int i = 0; i < coordinates.size(); i++)
+    for (int run = 0; run < 100; run++)
     {
-        visitableCities.insert(i);        
-    }
+        // Tour is a struct that contains int(currnetCity), vector of ints(list of visited city ids in order in this case) and a double holding the total distance traveled in the tour
+        Tour currentTour;
 
-    VisitCity(currentTour, visitableCities, 0);
-    
-    while (visitableCities.size() > 0)
-    {
-        // variable to add all the inverse distances of visitableCities for probability calculation
-        double totalInverseDistanceVisitableCities = 0;
+        // creating set for unvisited cities so that we can remove by value
+        std::set<int> visitableCities;
 
-        // adding up all the inverse distance for the visitableCities
-        for (int city : visitableCities)
+        for (int i = 0; i < coordinates.size(); i++)
         {
-            totalInverseDistanceVisitableCities += edgeInverseDistanceMatrix[currentTour.currentCity][city];
-        }     
-    
-        // vector of NeighborProbability construct to store the id and the probability of cities 
-        std::vector<NeighborProbability> probabilityVisitableCities;
+            visitableCities.insert(i);
+        }
 
-        // storing the id and probabilty for each of the visitable cities
-        for (int city : visitableCities)
+        // choose random starting city
+        int startCityIndex = ChooseStartingCity();
+        VisitCity(currentTour, visitableCities, startCityIndex);
+
+        while (visitableCities.size() > 0)
         {
-            NeighborProbability neighborProb;
-            neighborProb.id = city;
-            neighborProb.probability = edgeInverseDistanceMatrix[currentTour.currentCity][city] / totalInverseDistanceVisitableCities;
+            // variable to add all the inverse distances of visitableCities for probability calculation
+            double totalInverseDistanceVisitableCities = 0;
+            double totalRatingVisitableCities = 0;
 
-            probabilityVisitableCities.push_back(neighborProb);
-        }       
-
-        // Generating a random number between 0 and 1
-        double roll = generateRandomProb();
-
-        // declaring a variable to hold the sum of probabilities
-        double cumulativeProbability = 0;
-
-        // Choose City based on the probabilty of each neighbor
-        // Adding up the probabilty of each visitable city until we exceed the roll
-        // When we have exceeded the roll the city that caused cumulativeProbability to exceed the roll is choosed as the next city to visit
-        for (const NeighborProbability& neighbor : probabilityVisitableCities)
-        {
-            cumulativeProbability += neighbor.probability;
-            if (cumulativeProbability > roll)
+            // adding up all the inverse distance for the visitableCities
+            for (int city : visitableCities)
             {
-                VisitCity(currentTour, visitableCities, neighbor.id);
-                break;
+                totalInverseDistanceVisitableCities += edgeInverseDistanceMatrix[currentTour.currentCity][city];
+                totalRatingVisitableCities += edgeRatingMatrix[city][currentTour.currentCity];
+            }
+
+            // vector of NeighborProbability construct to store the id and the probability of cities 
+            std::vector<NeighborProbability> probabilityVisitableCities;
+
+            // storing the id and probabilty for each of the visitable cities
+            for (int city : visitableCities)
+            {
+                NeighborProbability neighborProb;
+                neighborProb.id = city;
+                double neighborRatingProb =  edgeRatingMatrix[currentTour.currentCity][neighborProb.id] / totalRatingVisitableCities;
+                double neighborDistanceProb = edgeInverseDistanceMatrix[currentTour.currentCity][neighborProb.id] / totalInverseDistanceVisitableCities;
+                neighborProb.probability = neighborDistanceProb * neighborRatingProb;
+
+                probabilityVisitableCities.push_back(neighborProb);
+            }
+            double totalProbNotNormalized = 0;
+            double normalizedTotalProb = 0;
+            for (auto& neighbor : probabilityVisitableCities)
+            {
+                totalProbNotNormalized += neighbor.probability;
+            }
+            for (auto& neighbor : probabilityVisitableCities)
+            {                
+                // to get normalized Total Probability
+                normalizedTotalProb += neighbor.probability * 1 / totalProbNotNormalized;
+                // scale neighbor probability with along Total Probability
+                neighbor.probability *= 1 / totalProbNotNormalized;
             }            
-        }    
-        
-    }
-    for (int i : currentTour.cityVisitOrder)
-    {
-        std::cout << i << std::endl;
+
+            // Generating a random number between 0 and 1
+            double roll = generateRandomProb();
+
+            // declaring a variable to hold the sum of probabilities
+            double cumulativeProbability = 0;                       
+            
+
+            // Choose City based on the probabilty of each neighbor
+            // Adding up the probabilty of each visitable city until we exceed the roll
+            // When we have exceeded the roll the city that caused cumulativeProbability to exceed the roll is choosed as the next city to visit
+            for (const NeighborProbability& neighbor : probabilityVisitableCities)
+            {
+                cumulativeProbability += neighbor.probability;
+                if (cumulativeProbability > roll)
+                {
+                    currentTour.distanceTraveled += 1 / edgeInverseDistanceMatrix[neighbor.id][currentTour.currentCity];
+                    VisitCity(currentTour, visitableCities, neighbor.id);
+                    break;
+                }
+            }
+        }
+        // Visit back the starting city
+        currentTour.distanceTraveled += 1 / edgeInverseDistanceMatrix[startCityIndex][currentTour.currentCity];
+        currentTour.currentCity = startCityIndex;
+        currentTour.cityVisitOrder.push_back(startCityIndex);
+
+        std::cout << "cityVisitOrder.size() = " << currentTour.cityVisitOrder.size() << std::endl;
+
+        // print current tour distance traveled
+        std::cout << "currentTour.distanceTraveled = " << currentTour.distanceTraveled << std::endl;
+
+        // adjusting the edge rating matrix
+        for (int i = 0; i < currentTour.cityVisitOrder.size() - 1; i++)
+        {
+            edgeRatingMatrix[currentTour.cityVisitOrder[i]][currentTour.cityVisitOrder[i + 1]] += std::pow(10, 7) / currentTour.distanceTraveled;
+            edgeRatingMatrix[currentTour.cityVisitOrder[i + 1]][currentTour.cityVisitOrder[i]] += std::pow(10, 7) / currentTour.distanceTraveled;
+        }
+
+        if (currentTour.distanceTraveled < shortestDistance)
+        {
+            shortestDistance = currentTour.distanceTraveled;
+        }
     }
 
     return 0;
 }
+
+
 
 
 
