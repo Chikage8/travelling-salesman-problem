@@ -511,7 +511,7 @@ int main() {
     }
 
     // set the filename
-    std::string filename = "fi10639.tsp";
+    std::string filename = "qatar.tsp";
 
     // create a vector of Coordinate structs using the readCoordinatesFromFile function which returns vector of Coordinate structs
     std::vector<Coordinate> coordinates = readCoordinatesFromFile(filename); 
