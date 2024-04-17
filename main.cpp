@@ -9,6 +9,7 @@
 #include <set>
 #include <queue>
 #include <stack>
+#include <chrono>
 
 // defining a struct for storing coordinates
 struct Coordinate 
@@ -484,12 +485,16 @@ void threeOpt(std::vector<int>& circuit, const std::vector<Coordinate>& coordina
 
 
 int main() {
+
+    // Start the timer
+    auto start = std::chrono::high_resolution_clock::now();
+
     // Choose Algoritm
     int userInput;    
     bool validInput = false;    
 
     //retrieved from the data source for uruguay case
-    /*double optimalDistance = 79114;*/
+    double optimalDistance = 1460000;
 
     while (!validInput)
     {
@@ -511,7 +516,7 @@ int main() {
     }
 
     // set the filename
-    std::string filename = "qatar.tsp";
+    std::string filename = "finland.tsp";
 
     // create a vector of Coordinate structs using the readCoordinatesFromFile function which returns vector of Coordinate structs
     std::vector<Coordinate> coordinates = readCoordinatesFromFile(filename); 
@@ -549,12 +554,12 @@ int main() {
                 }
             }
         }    
+            
 
-
-        for (int run = 0; run < 20000; run++)
+        for (int run = 0; run < 100; run++)
         {
-            int importanceEdgeRating = 0 + run/1000 * 2;
-            int importanceInverseDistance = 15 - run/1000;
+            int importanceEdgeRating = 0 + run/10;
+            int importanceInverseDistance = 15;
         
         
 
@@ -647,8 +652,8 @@ int main() {
             // adjusting the edge rating matrix
             for (int i = 0; i < currentTour.cityVisitOrder.size() - 1; i++)
             {
-                edgeRatingMatrix[currentTour.cityVisitOrder[i]][currentTour.cityVisitOrder[i + 1]] += std::pow(10, 2) / (currentTour.distanceTraveled/*-optimalDistance*/); //"-optimalDistance" can be used for more aggressive rewarding
-                edgeRatingMatrix[currentTour.cityVisitOrder[i + 1]][currentTour.cityVisitOrder[i]] += std::pow(10, 2) / (currentTour.distanceTraveled/*-optimalDistance*/);
+                edgeRatingMatrix[currentTour.cityVisitOrder[i]][currentTour.cityVisitOrder[i + 1]] += std::pow(10, 2) / (currentTour.distanceTraveled -optimalDistance); //"-optimalDistance" can be used for more aggressive rewarding
+                edgeRatingMatrix[currentTour.cityVisitOrder[i + 1]][currentTour.cityVisitOrder[i]] += std::pow(10, 2) / (currentTour.distanceTraveled -optimalDistance);
             }
 
             if (currentTour.distanceTraveled < shortestDistance)
@@ -694,9 +699,9 @@ int main() {
         double totalCost = calculateHamiltonianCircuitCost(hamiltonianCircuit, coordinates);
 
         // Further optimization of the circuit
-        //while (calculateHamiltonianCircuitCost(hamiltonianCircuit, coordinates) > 89000)
+        //while (calculateHamiltonianCircuitCost(hamiltonianCircuit, coordinates) > 10380)
         //{
-            //twoOpt(hamiltonianCircuit, coordinates);
+            twoOpt(hamiltonianCircuit, coordinates);
             //threeOpt(hamiltonianCircuit, coordinates);
         //}
         
@@ -704,9 +709,21 @@ int main() {
 
         std::cout << "Total cost of the Hamiltonian circuit: " << optimizedCost << std::endl;
 
+        for (auto& cityId : hamiltonianCircuit)
+        {
+            std::cout << cityId << "->";
+        }
+
     }
     
-    
+    // Stop the timer
+    auto end = std::chrono::high_resolution_clock::now();
+
+    // Calculate the duration
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+    // Output the duration
+    std::cout << "Execution time: " << duration << " milliseconds" << std::endl;
 
     return 0;
 }
